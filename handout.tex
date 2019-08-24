@@ -11,6 +11,7 @@
 \newcommand{\ABS}[1]{\left|#1\right|}
 \newcommand{\brkts}[1]{\left(#1\right)}
 \newcommand{\Brkts}[1]{\left\{#1\right\}}
+\newcommand{\BRKTS}[1]{\left[#1\right]}
 \newcommand{\arctanh}{\mathrm{tanh}^{-1}}
 
 \title{{\bf  Gaussian Belief Propagation
@@ -131,14 +132,15 @@ $\mathrm{LLR}(y_j | x_i)$を計算するためには，この$y'_{ji} - h_{ji} x
 ここで，干渉除去されて残留している部分は多数の確率変数の和であるため，中心極限定理によりガウス分布に近似する．
 そのため，確率変数$y'_{ji} - h_{ji} x_i$の確率密度関数は
 \begin{align}
-  p(y'_{ji} - h_{ji} x_i) = \frac{1}{\pi \sigma_{ji}^2} \exp\Brkts{\frac{\ABS{y'_{ji} - h_{ji} x_i}^2}{\sigma_{ji}^2}}
+  p(y'_{ji} - h_{ji} x_i) = \frac{1}{\pi \sigma_{ji}^2} \exp\Brkts{-\frac{\ABS{y'_{ji} - h_{ji} x_i}^2}{\sigma_{ji}^2}}
 \end{align}
 となる．
 つまり，計算したいLLR値は以下の通りである．
 \begin{align}
   \begin{split}
     \mathrm{LLR}(y_j | x_i) &= \log \frac{p(y'_{ji} - h_{ji} (+1))}{p(y'_{ji} - h_{ji} (-1))} \\
-    &= \frac{\ABS{y'_{ji} - h_{ji}}^2 - \ABS{y'_{ji} + h_{ji}}^2}{\sigma_{ji}^2}
+    &= \frac{\ABS{y'_{ji} + h_{ji}}^2 - \ABS{y'_{ji} - h_{ji}}^2}{\sigma_{ji}^2} \\
+    &=  \frac{4\Re\BRKTS{y'_{ji} h_{ji}^{*} }}{\sigma_{ji}}
   \end{split}
 \end{align}
 
@@ -153,7 +155,7 @@ $\mathrm{LLR}(y_j | x_i)$を計算するためには，この$y'_{ji} - h_{ji} x
     &\hat{x}_i = \tanh\left(\frac{\mathrm{LLR}(x_i|\mathbf{y})}{2}\right)\\
     &y'_{ji} = y_j - \sum_{k=1, k\not=i}^{M} h_{jk} \hat{x}_k \label{eq:y'_ji} \\
     &\sigma^2_{ji} = \sum_{k=1,k\not=i}^{M} |h_{jk}|^2 (1- \hat{x}_k^2) + \mathbb{V}[z] \label{eq:sig_ji} \\
-    &\mathrm{LLR}(y_j | x_i) = \frac{\ABS{y'_{ji} - h_{ji}}^2 - \ABS{y'_{ji} + h_{ji}}^2}{\sigma_{ji}^2}
+    &\mathrm{LLR}(y_j | x_i) = \frac{4\Re\BRKTS{y'_{ji} h_{ji}^{*} }}{\sigma_{ji}}
   \end{align}
 \end{itemize}
 しかし，このままでは関数ノードで生成するメッセージ数が1ノードあたり$M$個であり，各メッセージの計算には$\mathcal{O}(M)$の計算量が必要なため，全関数ノードの計算量が$\mathcal{O}(M^2 N)$となる．
@@ -169,7 +171,7 @@ $\mathrm{LLR}(y_j | x_i)$を計算するためには，この$y'_{ji} - h_{ji} x
   \sigma_{ji} &= \sigma_{j}^2 - \ABS{h_{ji}}^2 (1 - \hat{x}_i^2)
 \end{align}
 \begin{align}
-  \mathrm{LLR}(y_j | x_i) &= \frac{\ABS{y'_{ji} - h_{ji}}^2 - \ABS{y'_{ji} + h_{ji}}^2}{\sigma_{ji}^2} \\
+  \mathrm{LLR}(y_j | x_i) &= \frac{4\Re\BRKTS{y'_{ji} h_{ji}^{*} }}{\sigma_{ji}} \\
   \mathrm{LLR}(x_i | \mathbf{y}) &= \sum_{j=1}^N \mathrm{LLR}(y_j | x_i)
 \end{align}
 この変更によって，関数ノードでも変数ノードでも，その計算量は一回あたり$\mathcal{O}(NM)$になる．
