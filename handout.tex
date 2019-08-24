@@ -1,0 +1,185 @@
+\documentclass[twocolumn, a4paper]{ieicejsp}
+\usepackage[dvipdfmx]{graphicx}
+\usepackage{newenum}
+% \usepackage{epsfig}
+\usepackage{amsmath}
+\usepackage{amsbsy}
+\usepackage{amsfonts}
+\usepackage{subfigure}
+\usepackage{mediabb}
+
+\newcommand{\ABS}[1]{\left|#1\right|}
+\newcommand{\brkts}[1]{\left(#1\right)}
+\newcommand{\Brkts}[1]{\left\{#1\right\}}
+\newcommand{\arctanh}{\mathrm{tanh}^{-1}}
+
+\title{{\bf  Gaussian Belief Propagation
+        }}
+  \author{小松和暉}
+  \affliate{}
+
+
+\begin{document}
+\maketitle
+
+\section{はじめに}
+
+
+Gaussian Belief Propagation (GaBP)について解説をする．
+GaBPは以下のような線形モデルで送信ベクトル$\mathbf{x}$を推定するために用いられる．
+\begin{align}
+  \mathbf{y} = \mathbf{H} \mathbf{x} + \mathbf{z}
+\end{align}
+ここで，それぞれの変数のサイズは観測ベクトル$\mathbf{y}$は$N \times 1$，チャネル行列$\mathbf{H}$は$N \times M$，送信ベクトル$\mathbf{x}$は$M \times 1$，雑音ベクトル$\mathbf{Z}$は$N \times 1$である．
+ただし$M < N$とし，雑音ベクトルは要素が互いに独立な複素ガウス分布に従うとする．
+このようなモデルは，たとえばCDMAやMIMOなどに現れる．
+ここではチャネル行列$\mathbf{H}$は既知であるとする．
+もちろん，ゼロフォーシング（ZF）やMMSEにより$\mathbf{x}$を推定できるが，チャネル行列$\mathbf{H}$が大きな場合には計算量の問題が生じる．
+具体的にはZFやMMSEでは逆行列の計算が必要であるため，チャネル行列$\mathbf{H}$が特別な構造を持たない限りは$\mathcal{O}(M^3 + M^2 N)$の計算量が必要である．
+GaBPはこの問題を一回の繰り返しあたり$\mathcal{O}(MN)$で解くことができる．
+
+\section{GaBP}
+
+まず，LDPCのsum-product復号やGaBPは「複数の制約条件を満たすような良さそうな解を探す」アルゴリズムである．
+たとえば，LDPCのsum-product復号では「パリティ方程式が成り立つ」ことが制約条件であり，関数ノードは制約条件を満たすかどうかの対数尤度比を計算する．
+GaBPでは「$\mathbf{y} = \mathbf{H} \mathbf{x} + \mathbf{z}$が成り立つ」ことが制約条件であり，関数ノードではその対数尤度比を計算する．
+このように，sum-product復号とGaBPはその制約条件が異なるだけで，似たアルゴリズムである．
+そのため，LDPCのsum-product復号法の導出過程がわかれば，GaBPの導出もそれほど難しくない．
+ここでは，LDPCのsum-product復号法に似せるために，$x=\Brkts{+1, -1}$というBPSK信号とする．
+GaBPで最終的に計算したい値は，受信ベクトル$\mathbf{y}$が観測されたときの送信ベクトルの$i$ビット目の対数尤度比$\mathrm{LLR}(x_i | \mathbf{y})$である．
+これは，次のようにベイズの定理により変換できる．
+\begin{align}
+  \begin{split}
+    \mathrm{LLR}(x_i | \mathbf{y}) &=  \log \frac{p(\mathbf{y}|x_i=+1)p(x_i=+1)}{p(\mathbf{y}|x_i=-1)p(x_i=-1)}\\
+    &= \log \frac{p(\mathbf{y}|x_i=+1)}{p(\mathbf{y}|x_i=-1)} + \log \frac{p(x_i=+1)}{p(x_i=-1)} \\
+    &= \log \frac{p(\mathbf{y}|x_i=+1)}{p(\mathbf{y}|x_i=-1)}
+  \end{split}
+\end{align}
+最後の式へは事前情報がない場合，$p(x_i=+1)=p(x_i=-1)=0.5$であることを利用して第二項を0とした．
+ここで，雑音の分布が独立であるため，観測ベクトルの各要素で展開すれば以下を得る．
+\begin{align}
+  p(\mathbf{y} | x_i) = \prod_{j=1}^{N} p(y_j | x_i)
+\end{align}
+つまり，計算したいLLR値は
+\begin{align}
+  \begin{split}
+    \mathrm{LLR}(\mathbf{x}_i | \mathbf{y}) &= \log \frac{\displaystyle \prod_{j=1}^{N} p(y_j | x_i=+1) }{\displaystyle \prod_{j=1}^{N} p(y_j | x_i=-1) } \\
+    &= \sum_{j=1}^N \mathrm{LLR}(y_j | x_i)
+  \end{split}
+\end{align}
+となる．
+これがGaBPの変数ノードでの処理である．
+
+あとは，この各観測値の対数尤度比$\mathrm{LLR}(y_j | x_i)$が計算できればよい．
+この値を計算することが関数ノードでの処理である．
+そして関数ノードでは，制約条件「$\mathbf{y} = \mathbf{H} \mathbf{x} + \mathbf{z}$が成り立つ」かどうかの対数尤度比を計算し，それを$\mathrm{LLR}(y_j | x_i)$として返す．
+ここで，ソフトビットという概念を導入する．
+ソフトビットとはLLR値から推定されるビット値であり，+1や-1の尤度が高ければ高いほど+1や-1に近づく値であり，次のように計算できる．
+\begin{align}
+  \begin{split}
+    \hat{x}_i &= (+1) \cdot p(x_i=+1|\mathbf{y}) + (-1) \cdot p(x_i=-1|\mathbf{y}) \\
+    &=\tanh\left(\frac{\mathrm{LLR}(x_i|\mathbf{y})}{2}\right)
+  \end{split}
+\end{align}
+ここで$q=p(x_i=-1|\mathbf{y})$とすれば$p(x_i=+1|\mathbf{y})=1-q$であり，$\hat{x}_i=1-2q$である．
+このソフトビットは現在の送信ベクトルのビットの推定値であるため，このソフトビットを用いて受信信号から干渉除去を行う．
+具体的には，現在$i$番目のビットに関して$\mathrm{LLR}(y_j | x_i)$を計算したいとする．
+このとき，$j$番目の観測値は以下のように記述できる．
+\begin{align}
+  y_j = \sum_{k=1}^{M} h_{jk} x_k + z_j
+\end{align}
+今，$i$番目のビットのみに着目したいため，それ以外のビットは干渉になってしまう．
+そのためソフトビットを用いて次のように干渉除去を行う．
+\begin{align}
+  \begin{split}
+    y'_{ji} &= y_j - \sum_{k=1, k\not=i}^{M} h_{jk} \hat{x}_k \\
+    &= h_{ji} x_i + \sum_{k=1, k\not=i}^{M} h_{jk} (x_k - \hat{x}_k) + z
+  \end{split}
+\end{align}
+$h_{ji}x_i$を左辺に移項すれば，以下の式が得られる．
+\begin{align}
+  \begin{split}
+    y'_{ji} -  h_{ji} x_i &= \sum_{k=1, k\not=i}^{M} h_{jk} (x_k - \hat{x}_k) + z
+  \end{split}
+\end{align}
+右辺の干渉除去された信号の残留干渉の期待値と分散は次の通りである．
+ただし，$q=p(x_i=-1|\mathbf{y})$であり$\hat{x}_i=1-2q$である．
+\begin{align}
+  \begin{split}
+    &\mathbb{E}[x_i - \hat{x}_i] \\
+    &= p(x_i=1 | \mathbf{y})(1 - \hat{x}_i) + p(x_i=-1 | \mathbf{y})(-1 - \hat{x}_i) \\
+    &= (1-q)(1 - (1- 2q)) + q(-1-(1-2q)) \\
+    &= (1-2q) - (1-2q) = 0
+  \end{split}
+\end{align}
+\begin{align}
+  \begin{split}
+    &\mathbb{E}[|x_i-\hat{x}_i|^2] \\
+    &= p(x_i=1 | \mathbf{y}) |1-\hat{x}_i|^2 + p(x_i=-1 | \mathbf{y}) |-1-\hat{x}_i|^2 \\
+    &= (1-q) |1 - (1-2q)|^2 + q |-1-(1-2q)|^2 \\
+    &= 4q - 4q^2 = 1 - (1 - 4q + 4q^2) = 1 - (1 - 2q)^2 \\
+    &= 1 - \hat{x}_i^2
+  \end{split}
+\end{align}
+そのため，左辺や右辺全体の期待値や分散は
+\begin{align}
+  &\mathbb{E}[y'_{ji} - h_{ji} x_i] = 0 \\
+  &\sigma_{ji}^2 = \mathbb{V}[y'_{ji} - h_{ji}x_i] = \sum_{k=1,k\not=i}^{M} |h_{jk}|^2 (1- \hat{x}_k^2) + \mathbb{V}[z]
+\end{align}
+となる．
+$\mathrm{LLR}(y_j | x_i)$を計算するためには，この$y'_{ji} - h_{ji} x_i$の確率分布を求める必要がある．
+ここで，干渉除去されて残留している部分は多数の確率変数の和であるため，中心極限定理によりガウス分布に近似する．
+そのため，確率変数$y'_{ji} - h_{ji} x_i$の確率密度関数は
+\begin{align}
+  p(y'_{ji} - h_{ji} x_i) = \frac{1}{\pi \sigma_{ji}^2} \exp\Brkts{\frac{\ABS{y'_{ji} - h_{ji} x_i}^2}{\sigma_{ji}^2}}
+\end{align}
+となる．
+つまり，計算したいLLR値は以下の通りである．
+\begin{align}
+  \begin{split}
+    \mathrm{LLR}(y_j | x_i) &= \log \frac{p(y'_{ji} - h_{ji} (+1))}{p(y'_{ji} - h_{ji} (-1))} \\
+    &= \frac{\ABS{y'_{ji} - h_{ji}}^2 - \ABS{y'_{ji} + h_{ji}}^2}{\sigma_{ji}^2}
+  \end{split}
+\end{align}
+
+以上をすべてまとめれば，GaBPの更新式は次の通りである．
+\begin{itemize}
+  \item 変数ノード
+  \begin{align}
+    \mathrm{LLR}(x_i | \mathbf{y}) = \sum_{j=1}^N \mathrm{LLR}(y_j | x_i)
+  \end{align}
+  \item 関数ノード
+  \begin{align}
+    &\hat{x}_i = \tanh\left(\frac{\mathrm{LLR}(x_i|\mathbf{y})}{2}\right)\\
+    &y'_{ji} = y_j - \sum_{k=1, k\not=i}^{M} h_{jk} \hat{x}_k \label{eq:y'_ji} \\
+    &\sigma^2_{ji} = \sum_{k=1,k\not=i}^{M} |h_{jk}|^2 (1- \hat{x}_k^2) + \mathbb{V}[z] \label{eq:sig_ji} \\
+    &\mathrm{LLR}(y_j | x_i) = \frac{\ABS{y'_{ji} - h_{ji}}^2 - \ABS{y'_{ji} + h_{ji}}^2}{\sigma_{ji}^2}
+  \end{align}
+\end{itemize}
+しかし，このままでは関数ノードで生成するメッセージ数が1ノードあたり$M$個であり，各メッセージの計算には$\mathcal{O}(M)$の計算量が必要なため，全関数ノードの計算量が$\mathcal{O}(M^2 N)$となる．
+そのため，関数ノードで生成するメッセージは次の二つの値に変更する．
+\begin{align}
+  y'_{j} &= y_j - \sum_{k=1}^{M} h_{jk} \hat{x}_k \\
+  \sigma_{j}^{2} &= \sum_{k=1}^{M} \ABS{h_{jk}}^2 (1 - \hat{x}_k)^2 + \mathbb{V}[z]
+\end{align}
+これらと式~\eqref{eq:y'_ji}及び式~\eqref{eq:sig_ji}の違いは，総和記号に$k=i$の項を含めるかどうかである．
+そして，変数ノードでは次の計算を行う．
+\begin{align}
+  y'_{ji} &= y'_j + h_{ji} \hat{x}_i \\
+  \sigma_{ji} &= \sigma_{j}^2 - \ABS{h_{ji}}^2 (1 - \hat{x}_i^2)
+\end{align}
+\begin{align}
+  \mathrm{LLR}(y_j | x_i) &= \frac{\ABS{y'_{ji} - h_{ji}}^2 - \ABS{y'_{ji} + h_{ji}}^2}{\sigma_{ji}^2} \\
+  \mathrm{LLR}(x_i | \mathbf{y}) &= \sum_{j=1}^N \mathrm{LLR}(y_j | x_i)
+\end{align}
+この変更によって，関数ノードでも変数ノードでも，その計算量は一回あたり$\mathcal{O}(NM)$になる．
+
+
+
+\begin{thebibliography}{99}
+\bibitem{OganeSIP2017} 大鐘武雄, 西村寿彦, 小川恭孝, ``［招待講演］確率伝搬法による多次元信号検出,'' 信学技報, vol. 117, no. 395, SIP2017-92, pp. 175--175, 2018年1月． \\スライドURL：\verb|https://www.ieice.org/ess/sita/|
+\verb|forum/article/2018/201801262000.pdf|
+
+\end{thebibliography}
+
+\end{document}
