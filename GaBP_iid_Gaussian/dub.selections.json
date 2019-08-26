@@ -1,0 +1,21 @@
+{
+	"fileVersion": 1,
+	"versions": {
+		"carbon": {"path":"../../../carbon"},
+		"cblas": "2.0.3",
+		"dffdd": {"path":"../../"},
+		"dfftw3": "1.0.1",
+		"lapack": "0.1.0",
+		"ldpc-sp-decoder": {"path":"../../ldpc_sp_decoder"},
+		"libnlopt": "0.2.0",
+		"lock-free": "0.1.2",
+		"lubeck": "1.1.5",
+		"mir-algorithm": "3.3.11",
+		"mir-blas": "1.1.7",
+		"mir-core": "0.2.2",
+		"mir-lapack": "1.1.1",
+		"mir-linux-kernel": "1.0.1",
+		"mir-random": "2.2.4",
+		"msgpack-d": "1.0.1"
+	}
+}
